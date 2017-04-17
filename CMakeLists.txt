@@ -3,13 +3,20 @@ project (LearnOpenCL)
 
 if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug or Release)" FORCE)
-endif(NOT CMAKE_BUILD_TYPE)
+endif()
 
-list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
-	
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+	list(APPEND CMAKE_CXX_FLAGS "-std=c++11")
+endif()
+
 # link with opencl library
 set(OpenCL_LIBRARY OpenCL)
-set(OpenCL_LIBRARY_PATH /opt/amdgpu-pro/lib/x86_64-linux-gnu/)
+if(WIN32)
+	include_directories($ENV{AMDAPPSDKROOT}/include)
+	set(OpenCL_LIBRARY_PATH $ENV{AMDAPPSDKROOT}/lib/x86_64)
+else() #linux
+	set(OpenCL_LIBRARY_PATH /opt/amdgpu-pro/lib/x86_64-linux-gnu/)
+endif()
 link_directories(${OpenCL_LIBRARY_PATH})
 
 set(CHAPTERS
@@ -37,9 +44,12 @@ foreach(CHAPTER ${CHAPTERS})
 		# copy kernel files to output
 		file(GLOB KERNELS
 			"src/${CHAPTER}/${DEMO}/*.cl"
-		)
+		)   	
 		foreach(KERNEL ${KERNELS})
-			file(COPY ${KERNEL} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/${CHAPTER})
+			add_custom_command(TARGET ${NAME} POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different
+				${KERNEL} $<TARGET_FILE_DIR:${NAME}>
+			)
 		endforeach(KERNEL)
 	endforeach(DEMO)
 endforeach(CHAPTER)

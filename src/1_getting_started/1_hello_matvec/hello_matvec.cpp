@@ -9,6 +9,17 @@
 #define PROGRAM_FILE "hello_matvec.cl"
 #define KERNEL_FUNC "matvec_mult"
 
+std::string getWorkingDirectory(const std::string& file)
+{
+	size_t found = file.find_last_of("/\\");
+	if (found == std::string::npos) return "";
+#if defined(WIN32)
+	return file.substr(0, found) + "\\";
+#else
+	return file.substr(0, found) + "/";
+#endif
+}
+
 void initData(float *mat, float *vec,  
 				float *correct, size_t size)
 {
@@ -32,6 +43,8 @@ cl_program createProgramFromFile(const std::string& path, cl_context ctx)
 	std::ifstream f(path);
 	std::string code;
 
+	if (!f.is_open()) return NULL;
+
 	// reserve string memory
 	f.seekg(0, std::ios::end);
 	code.reserve(f.tellg());
@@ -50,14 +63,17 @@ cl_program createProgramFromFile(const std::string& path, cl_context ctx)
 	return pg;
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	cl_int i, err;
 	float mat[16], vec[4], result[4];
 	float correct[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	
+	if (argc < 1) { return -1; }
+	std::string kernelfile = getWorkingDirectory(argv[0]) + PROGRAM_FILE;
 
 	initData(mat, vec, correct, 4);
-	
+
 	cl_platform_id platform;
 	err = clGetPlatformIDs(1, &platform, NULL);
 	if (err != CL_SUCCESS) {
@@ -75,7 +91,7 @@ int main()
 		std::cerr << "cannot create context" << std::endl;
 	}
 
-	cl_program program = createProgramFromFile(PROGRAM_FILE, context);
+	cl_program program = createProgramFromFile(kernelfile, context);
 	if (!program) {
 		std::cerr << "cannot create program from source file" << std::endl;
 	}
@@ -114,7 +130,7 @@ int main()
 
 	err = 0;
 	for (i = 0; i < 4; ++i) { 
-		//if (result[i] != correct[i]) { err = 1; break; }
+		if (result[i] != correct[i]) { err = 1; }
 		printf("result[%d] = %f, correct[%d] = %f\n", i, result[i], i, correct[i]);
 	}
 	printf("Matrix-vector multiplication %ssuccessful.\n", err ? "un" : "");
